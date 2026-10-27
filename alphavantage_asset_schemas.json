@@ -1,0 +1,16 @@
+{
+    "equity_daily": {
+        "asset_name": "object",
+        "date": "datetime64[ns]",
+        "open": "float64",
+        "high": "float64",
+        "low": "float64",
+        "close": "float64",
+        "volume": "int64"
+    },
+    "commodity_gold": {
+        "asset_name": "object",
+        "date": "datetime64[ns]",
+        "close": "float64"
+    }
+}

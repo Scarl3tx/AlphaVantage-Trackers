@@ -1,0 +1,21 @@
+# 1. Isolate Python Virtual Environments
+.venv/
+venv/
+ENV/
+
+# 1. Ignore all files and subfolders inside the data folder
+data/**/*
+# 2. Allow Git to track the structural .gitkeep files
+!data/**/.gitkeep
+
+# 3. Isolate Python Cache Files
+__pycache__/
+*.pyc
+
+# 4. Isolate IDE and Local Version Managers
+.vscode/
+.idea/
+.python-version
+
+# 5. Isolate Secrets / Environment Variables
+.env

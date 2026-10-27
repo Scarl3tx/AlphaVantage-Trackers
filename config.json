@@ -1,0 +1,25 @@
+{
+    "assets": {
+        "NVDA": {
+            "function": "TIME_SERIES_DAILY",
+            "symbol_param": "symbol",
+            "schema_type": "equity_daily"
+        },
+        "XAG": {
+            "function": "GOLD_SILVER_HISTORY",
+            "symbol_param": "symbol",
+            "additional_params": {
+                "interval": "daily"
+            },
+            "schema_type": "commodity_gold"
+        },
+        "XAU": {
+            "function": "GOLD_SILVER_HISTORY",
+            "symbol_param": "symbol",
+            "additional_params": {
+                "interval": "daily"
+            },
+            "schema_type": "commodity_gold"
+        }
+    }
+}
