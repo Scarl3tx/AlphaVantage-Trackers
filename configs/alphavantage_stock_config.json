@@ -1,0 +1,9 @@
+{
+    "stocks": {
+        "NVDA": {
+            "function": "TIME_SERIES_DAILY",
+            "symbol_param": "symbol",
+            "schema_type": "equity_daily"
+        }
+    }
+}
