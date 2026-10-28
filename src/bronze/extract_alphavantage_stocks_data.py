@@ -12,7 +12,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 CONFIG_PATH = PROJECT_ROOT / "config"
 RAW_PATH = PROJECT_ROOT / "data" / "raw"
 STOCKS_PATH = RAW_PATH / "stocks"
-env_path = PROJECT_ROOT / "alpha_vantage_api.env"
+env_path = PROJECT_ROOT / "alphavantage_api.env"
 load_dotenv(dotenv_path=env_path)
 API_KEY = os.getenv("ALPHA_VANTAGE_KEY")
 

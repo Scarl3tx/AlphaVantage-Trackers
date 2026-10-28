@@ -13,7 +13,7 @@ CONFIG_PATH = PROJECT_ROOT / "config"
 RAW_PATH = PROJECT_ROOT / "data" / "raw"
 COMMODITIES_PATH = RAW_PATH / "commodities"
 
-ENV_PATH = PROJECT_ROOT / "alpha_vantage_api.env"
+ENV_PATH = PROJECT_ROOT / "alphavantage_api.env"
 load_dotenv(dotenv_path=ENV_PATH)
 API_KEY = os.getenv("ALPHA_VANTAGE_KEY")
 

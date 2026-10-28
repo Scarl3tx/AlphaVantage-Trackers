@@ -19,6 +19,8 @@ __pycache__/
 
 # 5. Isolate Secrets / Environment Variables
 .env
+.env.*
+*.env
 
 # 6. Python Notebook for function testing and visualization
 tracker_test.ipynb
