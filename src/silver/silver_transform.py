@@ -7,35 +7,33 @@ import sys
 from datetime import datetime
 import os
 
-project_root = Path(__file__).resolve().parent.parent.parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
+RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
+SILVER_DATA_DIR = PROJECT_ROOT / "data" / "silver"
+CONFIG_DIR = PROJECT_ROOT / "configs"
 
 def pq_to_df(asset_name: str) -> pd.DataFrame:
-    # 1. Target the raw data subdirectory for the specific stock asset
-    raw_dir = project_root / "data" / "raw" / asset_name
+    # Search recursively under data/raw for the asset's raw files
+    parquet_files = sorted(
+        RAW_DATA_DIR.rglob(f"*_{asset_name}_raw.pq")
+    )
 
-    # Check if the folder even exists before searching it
-    if not raw_dir.exists():
-        print(f"⚠️ Target folder missing: {raw_dir}")
-        return pd.DataFrame()
-    
-    # 2. Search for all matching Parquet files using wildcard patterns
-    # This matches anything that fits: asset_name_raw_*.pq
-    parquet_files = sorted(raw_dir.glob(f"{asset_name}_raw_*.pq"))
-    # If no files are found, exit early with an empty DataFrame
     if not parquet_files:
-        print(f"❌ No raw Parquet files located for asset: {asset_name}")
+        print(f"❌ No raw Parquet files located for {asset_name}")
         return pd.DataFrame()
-    
-    # 3. Pull the absolute newest file (last element in the sorted list)
+
     latest_file_path = parquet_files[-1]
-    print(f"📖 Reading newest raw file for {asset_name}: {latest_file_path.name}")
+
+    print(
+        f"📖 Reading newest raw file for {asset_name}: "
+        f"{latest_file_path}"
+    )
+
     try:
-        # 4. Ingest into a Pandas DataFrame
-        # pd.read_parquet accepts pathlib Path objects natively as strings
-        df = pd.read_parquet(str(latest_file_path))
-        return df
+        return pd.read_parquet(latest_file_path)
+
     except Exception as e:
-        print(f"💥 Critical error reading Parquet file for {asset_name}: {e}")
+        print(f"💥 Error reading Parquet file for {asset_name}: {e}")
         return pd.DataFrame()
 
 def flatten_alphavantage_ohlcv(asset_name: str, df_raw: pd.DataFrame, asset_config: dict) -> pd.DataFrame:
@@ -222,27 +220,26 @@ def df_integrity_check(df: pd.DataFrame) -> pd.DataFrame:
 
 def save_silver_to_pq(asset_name: str, df: pd.DataFrame):
     if df.empty:
-        raise ValueError(f"❌ Cannot save Silver data for {asset_name}: DataFrame is empty.")
-    
-    # 1. Establish directory pathing for parquet storage
-    silver_dir = project_root / "data" / "silver" / asset_name
-    os.makedirs(silver_dir, exist_ok=True)
+        raise ValueError(
+            f"Cannot save Silver data for {asset_name}: DataFrame is empty."
+        )
 
-    # 2. Generate hourly filename pathing
-    file_path = os.path.join(silver_dir, f"{asset_name}_silver.pq")
-    
-    # 4. Save to Disk
-    try:
-        df.to_parquet(file_path, engine="pyarrow", index=False)
-        print(f"💾 Saved silver Parquet file to: {file_path}")
-    except Exception as e:
-        print(f"❌ Failed to convert and save {asset_name} data to Parquet: {e}")
+    silver_dir = SILVER_DATA_DIR / asset_name
+    silver_dir.mkdir(parents=True, exist_ok=True)
+
+    file_path = silver_dir / f"{asset_name}_silver.pq"
+
+    df.to_parquet(file_path, engine="pyarrow", index=False)
+
+    print(f"💾 Saved silver Parquet file to: {file_path}")
 
 def run_alphavantage_silver(configs: dict, asset_schemas: dict):
+
     for asset_name, asset_config in configs["assets"].items():
         df_raw = pq_to_df(asset_name)
         if df_raw.empty:
             continue
+
         # Step 2: Unpack nested dictionaries and generate dynamic dates
         df_flattened = flatten_alphavantage_ohlcv(asset_name, df_raw, asset_config)
         # Step 3: Run the Schema Firewall dynamically
@@ -273,7 +270,7 @@ def run_alphavantage_silver(configs: dict, asset_schemas: dict):
         if df_clean.empty:
             continue
         save_silver_to_pq(asset_name, df_clean)
-        print(f"✅ Silver transformation successful for {asset_name} using '{schema_key}' schema.")
+        print(f"✅ Silver transformation successful for {asset_name} using '{schema_key}' schema.\n")
 
 def load_json_file(file_path):
     """Safely loads a JSON file or halts execution if missing."""
@@ -286,8 +283,8 @@ def load_json_file(file_path):
 
 if __name__ == "__main__":
     # 1. Resolve paths cleanly
-    config_path = project_root / "config.json"
-    asset_schema_path = project_root / "alphavantage_asset_schemas.json"
+    config_path = PROJECT_ROOT / "config.json"
+    asset_schema_path = PROJECT_ROOT / "alphavantage_asset_schemas.json"
 
     # 2. Load configurations using the helper
     config_data = load_json_file(config_path)
