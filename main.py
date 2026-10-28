@@ -9,36 +9,29 @@ import json
 PROJECT_ROOT = Path(__file__).resolve().parent
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 SILVER_DATA_DIR = PROJECT_ROOT / "data" / "silver"
-
+CONFIG_PATH = PROJECT_ROOT / "configs"
 # 2. Layer Imports
 # If your folder structure is: your_project/src/bronze_extraction/bronze_layer.py
-from bronze.extract_alphavantage_data import run_alphavantage_bronze
+from bronze.extract_alphavantage_asset_data import run_alphavantage_bronze
 from silver.silver_transform import run_alphavantage_silver
 from silver.silver_transform import load_json_file #prob shd move this to funcs
-
-from dataclasses import dataclass
-@dataclass(frozen=True)
-class PipelineContext:
-    """A single, structured container for all pipeline configurations."""
-    runtime_configs: dict
-    asset_schemas: dict
-    # Future scaling properties can be added here with default values:
-    # gold_configs: dict = None
-    # db_credentials: dict = None
 
 class Orchestrator():
     def __init__(self):
         self._registry: dict = {}
+
     def set_config(self, key: str, config_data: dict):
         """Dynamically registers any configuration object by a string key."""
         if not isinstance(config_data, dict):
             raise TypeError(f"Configuration data for '{key}' must be a dictionary.")
         self._registry[key] = config_data
+
     def _get_config(self, key: str) -> dict:
         """Internal helper to safely fetch configs with a clear error message."""
         if key not in self._registry:
             raise KeyError(f"🚨 Required configuration '{key}' has not been registered in the Orchestrator.")
         return self._registry[key]
+    
     def run_bronze_layer(self) -> bool:
         print("\n=== [STAGE 1] BRONZE LAYER EXTRACTION ===")
         try:
@@ -48,15 +41,18 @@ class Orchestrator():
         except Exception as e:
             print(f"💥 Pipeline halted during Bronze Layer: {e}")
             return False
+        
     def run_silver_layer(self):
         try:
             silver_av_configs = self._get_config("av_configs")
             schemas = self._get_config("av_asset_schemas")
             run_alphavantage_silver(silver_av_configs, schemas)
             return True
+
         except Exception as e:
             print(f"💥 Silver failed: {e}")
             return False
+        
     def execute(self, required_stages: list[str]):
         """Verifies that all required configurations for the run are present upfront."""
         for stage in required_stages:
@@ -87,19 +83,19 @@ def execute_orchestrator():
     print("🚀 Initializing Pipeline Context Setup...")
 
     # Define the exact configuration file paths
-    config_path = PROJECT_ROOT / "config.json"
-    asset_schema_path = PROJECT_ROOT / "alphavantage_asset_schemas.json"
+    asset_config_path = CONFIG_PATH / "alphavantage_asset_config.json"
+    asset_schema_path = CONFIG_PATH / "alphavantage_asset_schemas.json"
     orchestrator = Orchestrator()
     try:
-        with open(config_path, "r") as f:
-            orchestrator.set_config("av_configs", load_json_file(config_path))
+        with open(asset_config_path, "r") as f:
+            orchestrator.set_config("av_asset_configs", load_json_file(asset_config_path))
         with open(asset_schema_path, "r") as f:
             orchestrator.set_config("av_asset_schemas", load_json_file(asset_schema_path))
     except FileNotFoundError as e:
         print(f"❌ Context Setup Failed: {e.filename} is missing.")
         sys.exit(1)
     # Run the pipeline
-    orchestrator.execute(required_stages=["av_configs", "av_asset_schemas"])
+    orchestrator.execute(required_stages=["av_asset_configs", "av_asset_schemas"])
 
 if __name__ == "__main__":
     execute_orchestrator()
