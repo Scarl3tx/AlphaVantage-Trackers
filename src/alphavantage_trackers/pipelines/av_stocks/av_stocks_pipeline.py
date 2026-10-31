@@ -13,9 +13,13 @@ from alphavantage_trackers.paths import (
     CONFIG_PATH,
 )
 
+from alphavantage_trackers.logging_config import get_pipeline_logger
+
+logger = get_pipeline_logger("stocks")
+
 def run_stocks_pipeline():
 
-    print("\n========== COMMODITIES PIPELINE ==========")
+    logger.info("\n========== COMMODITIES PIPELINE ==========")
 
     # -------------------------
     # LOAD CONFIGURATION
@@ -32,34 +36,34 @@ def run_stocks_pipeline():
         stocks_config = config_data.get("stocks", {})
 
         if not stocks_config:
-            print("[STOCKS] No configurations found.")
+            logger.warning("[STOCKS] No configurations found.")
             return False
 
     except (FileNotFoundError, json.JSONDecodeError) as exc:
-        print(f"[STOCKS] Configuration error: {exc}")
+        logger.exception(f"[STOCKS] Configuration error: {exc}")
         return False
 
     # -------------------------
     # BRONZE
     # -------------------------
 
-    print("[STOCKS] Starting Bronze")
+    logger.info("\n========== [STOCKS] Starting Bronze ==========")
 
     bronze_success = run_alphavantage_stock_bronze(
         configs=stocks_config
     )
 
     if not bronze_success:
-        print("[STOCKS] Bronze failed. Skipping Silver.")
+        logger.error("[STOCKS] Bronze failed. Skipping Silver.")
         return False
 
-    print("[STOCKS] Bronze completed successfully")
+    logger.info("\n========== [STOCKS] Bronze completed successfully ==========")
 
     # -------------------------
     # SILVER
     # -------------------------
 
-    print("[STOCKS] Starting Silver")
+    logger.info("\n========== [STOCKS] Starting Silver ==========")
 
     try:
         with open(
@@ -70,11 +74,11 @@ def run_stocks_pipeline():
             schema_config = json.load(file)
 
         if not schema_config:
-            print("[STOCKS] No schema configurations found.")
+            logger.error("[STOCKS] No schema configurations found.")
             return False
         
     except (FileNotFoundError, json.JSONDecodeError) as exc:
-        print(f"[STOCKS] Configuration error: {exc}")
+        logger.exception(f"[STOCKS] Configuration error: {exc}")
         return False
 
     silver_success = run_alphavantage_stocks_silver(
@@ -83,11 +87,11 @@ def run_stocks_pipeline():
     )
 
     if not silver_success:
-        print("[STOCKS] Silver failed.")
+        logger.error("[STOCKS] Silver failed.")
         return False
 
-    print("[STOCKS] Silver completed successfully")
+    logger.info("\n========== [STOCKS] Silver completed successfully ==========")
 
-    print("========== STOCKS PIPELINE COMPLETE ==========\n")
+    logger.info("\n========== STOCKS PIPELINE COMPLETE ==========\n")
 
     return True

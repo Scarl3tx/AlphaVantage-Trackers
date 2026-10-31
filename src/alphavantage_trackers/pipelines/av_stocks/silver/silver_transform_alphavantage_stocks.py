@@ -1,16 +1,18 @@
 from pathlib import Path
-import json
 import pandas as pd
 from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
-import sys
 from datetime import datetime
-import os
 
 PROJECT_ROOT = Path(__file__).resolve().parents[5]
 RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
 SILVER_DATA_DIR = PROJECT_ROOT / "data" / "silver"
 CONFIG_DIR = PROJECT_ROOT / "configs"
+
+from alphavantage_trackers.func import load_json_file
+
+from alphavantage_trackers.logging_config import get_pipeline_logger
+logger = get_pipeline_logger("stocks")
 
 def pq_to_df(asset_name: str) -> pd.DataFrame:
     # Search recursively under data/raw for the asset's raw files
@@ -19,12 +21,12 @@ def pq_to_df(asset_name: str) -> pd.DataFrame:
     )
 
     if not parquet_files:
-        print(f"❌ No raw Parquet files located for {asset_name}")
+        logger.warning(f"❌ No raw Parquet files located for {asset_name}")
         return pd.DataFrame()
 
     latest_file_path = parquet_files[-1]
 
-    print(
+    logger.info(
         f"📖 Reading newest raw file for {asset_name}: "
         f"{latest_file_path}"
     )
@@ -33,7 +35,7 @@ def pq_to_df(asset_name: str) -> pd.DataFrame:
         return pd.read_parquet(latest_file_path)
 
     except Exception as e:
-        print(f"💥 Error reading Parquet file for {asset_name}: {e}")
+        logger.exception(f"💥 Error reading Parquet file for {asset_name}: {e}")
         return pd.DataFrame()
 
 def flatten_alphavantage_ohlcv(asset_name: str, df_raw: pd.DataFrame, asset_config: dict) -> pd.DataFrame:
@@ -74,7 +76,7 @@ def flatten_alphavantage_ohlcv(asset_name: str, df_raw: pd.DataFrame, asset_conf
             df_cleaned = df_cleaned.reset_index()
 
         else:
-            print(f"⚠️ Skipping {asset_name}: Unknown schema_type configuration structural strategy '{schema_type}'.")
+            logger.warning(f"⚠️ Skipping {asset_name}: Unknown schema_type configuration structural strategy '{schema_type}'.")
             return pd.DataFrame()
         
         # =====================================================================
@@ -90,7 +92,7 @@ def flatten_alphavantage_ohlcv(asset_name: str, df_raw: pd.DataFrame, asset_conf
             if col in df_cleaned.columns:
                 df_cleaned[col] = pd.to_numeric(df_cleaned[col])
                 
-        print(f"✨ Transformed {len(df_cleaned)} rows smoothly for {asset_name} using '{schema_type}' engine.")
+        logger.info(f"✨ Transformed {len(df_cleaned)} rows smoothly for {asset_name} using '{schema_type}' engine.")
         return df_cleaned
 
     except Exception as e:
@@ -104,7 +106,7 @@ def df_column_check(df: pd.DataFrame, expected_schema: dict) -> pd.DataFrame:
         # 1. Validate that all required columns for THIS specific schema exist
         missing_cols = [col for col in expected_schema.keys() if col not in df.columns]
         if missing_cols:
-            print(f"❌ SCHEMA VALIDATION FAILED: Missing columns {missing_cols}")
+            logger.warning(f"❌ SCHEMA VALIDATION FAILED: Missing columns {missing_cols}")
             return pd.DataFrame()
     # 2. Slice out extra columns and enforce strict schema order
         df_validated = df[list(expected_schema.keys())].copy()
@@ -119,7 +121,7 @@ def df_column_check(df: pd.DataFrame, expected_schema: dict) -> pd.DataFrame:
 
         return df_validated
     except Exception as e:
-        print(f"❌ Critical error during schema enforcement: {e}")
+        logger.exception(f"❌ Critical error during schema enforcement: {e}")
         return pd.DataFrame()
 
 def derive_time_attributes(df: pd.DataFrame, date_column: str = "date") -> pd.DataFrame:
@@ -183,7 +185,7 @@ def calculate_percentage_changes(df: pd.DataFrame) -> pd.DataFrame:
     # Audit logging
     gap_count = is_data_missing.sum()
     if gap_count > 0:
-        print(f"⚠️ DATA GAP FIREWALL: Set 'pct_change' to NaN on {gap_count} rows due to dropped/missing trading sessions.")
+        logger.warning(f"⚠️ DATA GAP FIREWALL: Set 'pct_change' to NaN on {gap_count} rows due to dropped/missing trading sessions.")
 
     # Clean up tracking features
     df_calc = df_calc.drop(columns=["prev_close", "prev_date", "trading_day_gap"])
@@ -230,8 +232,7 @@ def save_silver_to_pq(asset_name: str, df: pd.DataFrame):
     file_path = silver_dir / f"{asset_name}_silver.pq"
 
     df.to_parquet(file_path, engine="pyarrow", index=False)
-
-    print(f"💾 Saved silver Parquet file to: {file_path}")
+    logger.info(f"💾 Saved silver Parquet file to: {file_path}")
 
 def run_alphavantage_stocks_silver(configs: dict, asset_schemas: dict) -> bool:
     success = True
@@ -252,14 +253,14 @@ def run_alphavantage_stocks_silver(configs: dict, asset_schemas: dict) -> bool:
         target_schema = asset_schemas.get(schema_key) 
 
         if not target_schema:
-            print(f"⚠️ Skipping {asset_name}: Schema type '{schema_key}' not found.")
+            logger.warning(f"⚠️ Skipping {asset_name}: Schema type '{schema_key}' not found.")
             success = False
             continue
 
         # 🟢 3. Passes the dictionary schema map to your column checker
         df_schema_approved = df_column_check(df_flattened, expected_schema=target_schema)
         if df_schema_approved.empty:
-            print(f"⚠️ Skipping {asset_name}: Failed Schema Firewall validation.")
+            logger.warning(f"⚠️ Skipping {asset_name}: Failed Schema Firewall validation.")
             success = False
             continue
         # Step 4: Run the Time Attribute Enrichment Function
@@ -273,21 +274,12 @@ def run_alphavantage_stocks_silver(configs: dict, asset_schemas: dict) -> bool:
         # Step 6: LOGICAL INTEGRITY FIREWALL (Check high >= open, prices > 0)
         df_clean = df_integrity_check(df_with_metrics)
         if df_clean.empty:
-            print(f"⚠️ Skipping {asset_name}: Integrity check returned empty data.")
+            logger.warning(f"⚠️ Skipping {asset_name}: Integrity check returned empty data.")
             success = False
             continue
         save_silver_to_pq(asset_name, df_clean)
-        print(f"✅ Silver transformation successful for {asset_name} using '{schema_key}' schema.\n")
+        logger.info(f"✅ Silver transformation successful for {asset_name} using '{schema_key}' schema.\n")
     return success
-
-def load_json_file(file_path):
-    """Safely loads a JSON file or halts execution if missing."""
-    try:
-        with open(file_path, "r") as file:
-            return json.load(file)
-    except FileNotFoundError:
-        print(f"❌ Critical Failure: File not found at '{file_path}'")
-        sys.exit(1) # Stop the script immediately instead of crashing later
 
 if __name__ == "__main__":
     # 1. Resolve paths cleanly
