@@ -3,8 +3,9 @@
 venv/
 ENV/
 
-# 1. Ignore all files and subfolders inside the data folder
+# 1. Ignore all files and subfolders inside the data/log folder
 data/**/*
+logs/**
 # 2. Allow Git to track the structural .gitkeep files
 !data/**/.gitkeep
 
