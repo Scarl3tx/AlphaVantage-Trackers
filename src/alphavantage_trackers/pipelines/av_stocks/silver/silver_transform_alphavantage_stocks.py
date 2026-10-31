@@ -4,10 +4,11 @@ from pandas.tseries.holiday import USFederalHolidayCalendar
 from pandas.tseries.offsets import CustomBusinessDay
 from datetime import datetime
 
-PROJECT_ROOT = Path(__file__).resolve().parents[5]
-RAW_DATA_DIR = PROJECT_ROOT / "data" / "raw"
-SILVER_DATA_DIR = PROJECT_ROOT / "data" / "silver"
-CONFIG_DIR = PROJECT_ROOT / "configs"
+from alphavantage_trackers.paths import (
+    RAW_PATH,
+    STOCKS_SILVER_PATH,
+    PROJECT_ROOT
+)
 
 from alphavantage_trackers.func import load_json_file
 
@@ -17,7 +18,7 @@ logger = get_pipeline_logger("stocks")
 def pq_to_df(asset_name: str) -> pd.DataFrame:
     # Search recursively under data/raw for the asset's raw files
     parquet_files = sorted(
-        RAW_DATA_DIR.rglob(f"*_{asset_name}_raw.pq")
+        RAW_PATH.rglob(f"*_{asset_name}_raw.pq")
     )
 
     if not parquet_files:
@@ -226,7 +227,7 @@ def save_silver_to_pq(asset_name: str, df: pd.DataFrame):
             f"Cannot save Silver data for {asset_name}: DataFrame is empty."
         )
 
-    silver_dir = SILVER_DATA_DIR / asset_name
+    silver_dir = STOCKS_SILVER_PATH / asset_name
     silver_dir.mkdir(parents=True, exist_ok=True)
 
     file_path = silver_dir / f"{asset_name}_silver.pq"
