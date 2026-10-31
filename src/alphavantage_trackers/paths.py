@@ -11,8 +11,14 @@ ENV_PATH = PROJECT_ROOT / "alphavantage_api.env"
 
 # Data directories
 DATA_PATH = PROJECT_ROOT / "data"
+DATABASE_PATH = DATA_PATH / "database" / "alphavantage.duckdb"
+
 RAW_PATH = DATA_PATH / "raw"
+
 SILVER_PATH = DATA_PATH / "silver"
+STOCKS_SILVER_PATH = SILVER_PATH / "stocks"
+COMMODITIES_SILVER_PATH = SILVER_PATH / "commodities"
+
 GOLD_PATH = DATA_PATH / "gold"
 
 #API Limit tracker
