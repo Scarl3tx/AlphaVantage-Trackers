@@ -1,9 +1,11 @@
 import logging
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 from alphavantage_trackers.paths import PROJECT_ROOT
 
 LOG_PATH = PROJECT_ROOT / "logs"
+
 
 
 def get_pipeline_logger(pipeline_name: str):
@@ -22,8 +24,10 @@ def get_pipeline_logger(pipeline_name: str):
             datefmt="%H:%M:%S"
         )
 
-        file_handler = logging.FileHandler(
+        file_handler = RotatingFileHandler(
             log_dir / f"{pipeline_name}.log",
+            maxBytes=5 * 1024 * 1024,  # 5 MB
+            backupCount=10,
             encoding="utf-8"
         )
 
